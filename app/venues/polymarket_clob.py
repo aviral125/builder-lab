@@ -15,7 +15,32 @@ from app.venues.base import NotConfigured, OrderRequest, OrderResult, Venue, Ven
 from app.venues.polymarket_common import PolymarketClients
 
 COLLATERAL_DECIMALS = Decimal(10) ** 6
-MARKET_FIELDS = {"id", "slug", "question", "condition_id", "outcomes", "prices", "state"}
+
+
+def market_view(market: Any) -> dict:
+    """One market as the UI shows it: a question and its tradable outcomes."""
+    legs = []
+    outcomes = getattr(market, "outcomes", None)
+    for key in ("yes", "no"):
+        outcome = getattr(outcomes, key, None)
+        token = getattr(outcome, "token_id", None)
+        if outcome is None or token is None:
+            continue
+        price = getattr(outcome, "price", None)
+        legs.append(
+            {
+                "label": getattr(outcome, "label", key.title()),
+                "symbol": str(token),
+                "price": str(price) if price is not None else None,
+            }
+        )
+    return {
+        "title": getattr(market, "question", None) or getattr(market, "slug", ""),
+        "subtitle": getattr(market, "slug", None),
+        "legs": legs,
+        "id": str(getattr(market, "id", "")),
+        "condition_id": str(getattr(market, "condition_id", "")),
+    }
 
 
 def normalize_trade(t: Any) -> dict:
@@ -54,14 +79,28 @@ class PolymarketClobVenue(Venue):
             for result in page.items:
                 for event in result.events:
                     for market in getattr(event, "markets", None) or ():
-                        out.append(market.model_dump(mode="json", include=MARKET_FIELDS))
+                        out.append(market_view(market))
             return out[:limit]
-        page = await public.list_markets(closed=False, page_size=limit).first_page()
-        return [m.model_dump(mode="json", include=MARKET_FIELDS) for m in page.items]
+        try:  # busiest markets first
+            page = await public.list_markets(
+                closed=False, order="volume24hr", ascending=False, page_size=limit
+            ).first_page()
+        except Exception:
+            page = await public.list_markets(closed=False, page_size=limit).first_page()
+        return [market_view(m) for m in page.items]
 
     async def orderbook(self, symbol: str) -> Any:
         book = await self._clients.public().get_order_book(token_id=symbol)
-        return to_jsonable(book)
+        # Best prices first on both sides.
+        bids = sorted(book.bids, key=lambda l: l.price, reverse=True)
+        asks = sorted(book.asks, key=lambda l: l.price)
+        return {
+            "symbol": symbol,
+            "bids": [{"price": str(l.price), "size": str(l.size)} for l in bids],
+            "asks": [{"price": str(l.price), "size": str(l.size)} for l in asks],
+            "tick_size": str(book.tick_size),
+            "min_order_size": str(book.min_order_size),
+        }
 
     async def reference_price(self, symbol: str, side: str) -> Decimal:
         # Price a taker pays on this side.

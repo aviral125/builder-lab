@@ -422,3 +422,38 @@ def test_real_venues_build_without_network(env, tmp_path):
     assert sorted(venues) == ["hyperliquid", "polymarket", "polymarket_perps"]
     assert venues["hyperliquid"].builder_identity()["order_field"] == {"b": BUILDER, "f": 10}
     assert venues["polymarket"].builder_identity()["builder_code"] == CODE
+
+
+# --- UI-facing shapes --------------------------------------------------------
+def test_market_and_book_shapes_are_uniform():
+    from types import SimpleNamespace as NS
+
+    from app.venues.polymarket_clob import market_view
+
+    market = NS(
+        id=7, slug="will-it-rain", question="Will it rain?", condition_id="0xabc",
+        outcomes=NS(yes=NS(label="Yes", token_id="111", price=Decimal("0.4")), no=NS(label="No", token_id=None, price=None)),
+    )
+    view = market_view(market)
+    assert view["title"] == "Will it rain?"
+    assert view["legs"] == [{"label": "Yes", "symbol": "111", "price": "0.4"}]  # untradable leg dropped
+
+    venue, _, _ = make_hl()
+    m = run(venue.markets("btc"))[0]
+    assert m["title"] == "BTC" and m["legs"] == [{"label": "BTC", "symbol": "BTC", "price": "100000.0"}]
+
+    class Pub:
+        async def get_order_book(self, *, token_id):
+            lv = lambda p, s: NS(price=Decimal(p), size=Decimal(s))
+            return NS(bids=(lv("0.3", "5"), lv("0.4", "1")), asks=(lv("0.6", "2"), lv("0.5", "9")), tick_size=Decimal("0.01"), min_order_size=Decimal("5"))
+
+        async def fetch_perps_book(self, *, instrument_id, depth):
+            lv = lambda p, q: NS(price=Decimal(p), quantity=Decimal(q))
+            return NS(bids=(lv("50", "1"),), asks=(lv("51", "2"),))
+
+    clients = FakeClients()
+    clients.public_client = Pub()
+    book = run(PolymarketClobVenue(clients, CODE).orderbook("111"))
+    assert book["bids"][0] == {"price": "0.4", "size": "1"} and book["asks"][0] == {"price": "0.5", "size": "9"}
+    book = run(PolymarketPerpsVenue(clients, builder_address=BUILDER, builder_fee_bps=Decimal(0)).orderbook("3"))
+    assert book["bids"] == [{"price": "50", "size": "1"}] and book["asks"] == [{"price": "51", "size": "2"}]

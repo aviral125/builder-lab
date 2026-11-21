@@ -2,126 +2,551 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>builder-lab</title>
+<style>
+:root {
+  --bg: #000000;
+  --panel: #101214;
+  --line: #262a2f;
+  --text: #e9eaec;
+  --muted: #8a9099;
+  --accent: #ffb224;
+  --accent-ink: #1a1200;
+  --buy: #2fca8c;
+  --sell: #ff5c6c;
+  --radius: 14px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text); }
+body {
+  font: 15px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.num { font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+
+/* layout: nav | feed | side */
+.shell {
+  display: grid;
+  grid-template-columns: 230px minmax(0, 620px) 360px;
+  justify-content: center;
+  min-height: 100vh;
+}
+.nav {
+  position: sticky; top: 0; height: 100vh;
+  padding: 14px 12px; display: flex; flex-direction: column; gap: 4px;
+}
+.brand { font-size: 21px; font-weight: 800; letter-spacing: -0.02em; padding: 10px 14px 18px; }
+.brand span { color: var(--accent); }
+.nav button {
+  background: none; border: 0; text-align: left;
+  padding: 12px 14px; border-radius: 999px; font-size: 18px;
+}
+.nav button:hover { background: var(--panel); }
+.nav button[aria-current="page"] { font-weight: 700; }
+.mode {
+  margin-top: auto; padding: 12px 14px; border: 1px solid var(--line);
+  border-radius: var(--radius); font-size: 13px;
+}
+.mode strong { display: block; font-size: 14px; }
+.mode.live strong { color: var(--sell); }
+.mode.dry strong { color: var(--buy); }
+
+.feed { border-left: 1px solid var(--line); border-right: 1px solid var(--line); min-height: 100vh; }
+.feed-head {
+  position: sticky; top: 0; z-index: 2;
+  background: rgba(0, 0, 0, 0.82); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--line);
+}
+.feed-head h1 { margin: 0; padding: 14px 18px 6px; font-size: 20px; font-weight: 700; }
+.tabs { display: flex; }
+.tabs button {
+  flex: 1; background: none; border: 0; padding: 14px 6px; color: var(--muted);
+  font-weight: 600; position: relative;
+}
+.tabs button:hover { background: var(--panel); }
+.tabs button[aria-selected="true"] { color: var(--text); }
+.tabs button[aria-selected="true"]::after {
+  content: ""; position: absolute; left: 50%; bottom: 0; transform: translateX(-50%);
+  width: 56px; height: 4px; border-radius: 4px; background: var(--accent);
+}
+.toolbar { display: flex; gap: 8px; padding: 12px 18px; border-bottom: 1px solid var(--line); }
+.toolbar input { flex: 1; }
+
+input, select {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  padding: 10px 12px; width: 100%; min-width: 0;
+}
+input::placeholder { color: var(--muted); }
+.btn {
+  border: 1px solid var(--line); background: none; border-radius: 999px;
+  padding: 8px 16px; font-weight: 600; white-space: nowrap;
+}
+.btn:hover { background: var(--panel); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.small { padding: 5px 12px; font-size: 13px; }
+.btn:disabled { opacity: 0.5; cursor: default; }
+
+.row { padding: 14px 18px; border-bottom: 1px solid var(--line); }
+.row:hover { background: #07080a; }
+.row h3 { margin: 0 0 2px; font-size: 15px; font-weight: 600; }
+.row .sub { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+.legs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.leg {
+  display: flex; gap: 10px; align-items: baseline;
+  border: 1px solid var(--line); background: none; border-radius: 999px; padding: 6px 14px;
+}
+.leg:hover, .leg[aria-pressed="true"] { border-color: var(--accent); }
+.leg[aria-pressed="true"] { background: rgba(255, 178, 36, 0.1); }
+.leg b { font-weight: 600; }
+
+.empty { padding: 40px 24px; text-align: center; color: var(--muted); }
+.empty strong { display: block; color: var(--text); font-size: 17px; margin-bottom: 6px; }
+.empty code, .kv code { background: var(--panel); padding: 2px 6px; border-radius: 6px; font-size: 13px; }
+
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+th { text-align: left; color: var(--muted); font-weight: 500; padding: 10px 8px; border-bottom: 1px solid var(--line); }
+td { padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: top; overflow-wrap: anywhere; }
+th:first-child, td:first-child { padding-left: 18px; }
+th:last-child, td:last-child { padding-right: 18px; }
+.table-wrap { overflow-x: auto; }
+.section-title { padding: 16px 18px 6px; font-size: 16px; font-weight: 700; margin: 0; }
+
+.chip { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; border: 1px solid var(--line); }
+.chip.open { color: var(--accent); border-color: var(--accent); }
+.chip.filled { color: var(--buy); border-color: var(--buy); }
+.chip.rejected { color: var(--sell); border-color: var(--sell); }
+.buy { color: var(--buy); }
+.sell { color: var(--sell); }
+
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; padding: 12px 18px; margin: 0; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; overflow-wrap: anywhere; }
+
+/* right column */
+.side { padding: 14px 0 40px 22px; display: flex; flex-direction: column; gap: 14px; }
+.card { background: var(--panel); border-radius: var(--radius); padding: 16px; }
+.card h2 { margin: 0 0 12px; font-size: 18px; font-weight: 800; }
+.field { margin-bottom: 10px; }
+.field label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+.card input, .card select { background: var(--bg); }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.seg { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin-bottom: 10px; }
+.seg button { border: 0; background: none; padding: 10px; font-weight: 700; color: var(--muted); }
+.seg button[aria-pressed="true"].b { background: var(--buy); color: #00150c; }
+.seg button[aria-pressed="true"].s { background: var(--sell); color: #1c0004; }
+.checks { display: flex; gap: 16px; font-size: 13px; color: var(--muted); margin: 4px 0 12px; }
+.checks input { width: auto; margin-right: 6px; }
+.estimate { font-size: 13px; color: var(--muted); margin: 0 0 12px; min-height: 18px; }
+.estimate.over { color: var(--sell); }
+.wide { width: 100%; padding: 12px; font-size: 16px; }
+.note { font-size: 13px; margin: 12px 0 0; overflow-wrap: anywhere; }
+.note.ok { color: var(--buy); }
+.note.err { color: var(--sell); }
+
+.book { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 13px; }
+.book div.lv { display: flex; justify-content: space-between; padding: 2px 0; }
+.book h4 { margin: 0 0 6px; font-size: 13px; font-weight: 500; color: var(--muted); }
+
+@media (max-width: 1180px) {
+  .shell { grid-template-columns: 76px minmax(0, 620px) 340px; }
+  .brand { font-size: 0; padding: 10px 6px 18px; }
+  .brand::before { content: "bl"; font-size: 21px; color: var(--accent); }
+  .nav button { font-size: 13px; padding: 10px 6px; text-align: center; }
+  .mode { font-size: 11px; padding: 8px; }
+  .mode span { display: none; }
+}
+@media (max-width: 880px) {
+  .shell { display: block; }
+  .nav { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; border-bottom: 1px solid var(--line); }
+  .brand { padding: 6px 10px; }
+  .mode { margin: 0 0 0 auto; }
+  .feed { border: 0; min-height: 0; }
+  .feed-head { position: static; }
+  .side { padding: 14px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
+</style>
 </head>
 <body>
-<h1>builder-lab</h1>
-<p id="mode"></p>
+<div class="shell">
 
-<p>
-  Venue:
-  <select id="venue">
-    <option value="polymarket">polymarket (prediction markets)</option>
-    <option value="polymarket_perps">polymarket_perps</option>
-    <option value="hyperliquid">hyperliquid</option>
-  </select>
-</p>
+  <nav class="nav" aria-label="Sections">
+    <div class="brand">builder<span>-lab</span></div>
+    <button data-view="markets" aria-current="page">Markets</button>
+    <button data-view="account">Account</button>
+    <button data-view="orders">Orders</button>
+    <button data-view="fills">Fills</button>
+    <button data-view="builder">Builder</button>
+    <div class="mode" id="mode"><strong>Loading</strong></div>
+  </nav>
 
-<h2>Markets</h2>
-<form id="f-markets">
-  Search <input name="q" placeholder="optional">
-  <button>List markets</button>
-</form>
-<p>Symbol to trade: token id (polymarket), instrument id (polymarket_perps), coin such as BTC (hyperliquid).</p>
-<form id="f-book">
-  Symbol <input name="symbol" required size="40">
-  <button>Order book</button>
-</form>
+  <main class="feed">
+    <div class="feed-head">
+      <h1 id="view-title">Markets</h1>
+      <div class="tabs" role="tablist" aria-label="Venue">
+        <button role="tab" data-venue="polymarket" aria-selected="true">Polymarket</button>
+        <button role="tab" data-venue="polymarket_perps" aria-selected="false">Polymarket Perps</button>
+        <button role="tab" data-venue="hyperliquid" aria-selected="false">Hyperliquid</button>
+      </div>
+    </div>
+    <div id="view"></div>
+  </main>
 
-<h2>Account</h2>
-<button id="b-account">Balances, positions, open orders</button>
+  <aside class="side">
+    <section class="card">
+      <h2>Place order</h2>
+      <form id="ticket">
+        <div class="field">
+          <label for="t-symbol">Market</label>
+          <input id="t-symbol" name="symbol" placeholder="Pick one from Markets" required autocomplete="off">
+        </div>
+        <div class="seg" role="group" aria-label="Side">
+          <button type="button" class="b" data-side="BUY" aria-pressed="true">Buy</button>
+          <button type="button" class="s" data-side="SELL" aria-pressed="false">Sell</button>
+        </div>
+        <div class="two">
+          <div class="field">
+            <label for="t-size">Size</label>
+            <input id="t-size" name="size" inputmode="decimal" required autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="t-price">Limit price</label>
+            <input id="t-price" name="price" inputmode="decimal" placeholder="Market" autocomplete="off">
+          </div>
+        </div>
+        <div class="field">
+          <label for="t-tif">Time in force</label>
+          <select id="t-tif" name="tif">
+            <option value="">Automatic</option>
+            <option value="gtc">Good till cancelled</option>
+            <option value="ioc">Immediate or cancel</option>
+            <option value="fok">Fill or kill</option>
+          </select>
+        </div>
+        <div class="checks">
+          <label><input type="checkbox" name="post_only">Post only</label>
+          <label><input type="checkbox" name="reduce_only">Reduce only</label>
+        </div>
+        <p class="estimate num" id="estimate"></p>
+        <button class="btn primary wide" id="t-submit">Place order</button>
+        <p class="note" id="t-note" role="status"></p>
+      </form>
+    </section>
 
-<h2>Place order</h2>
-<form id="f-order">
-  Symbol <input name="symbol" required size="40"><br>
-  Side <select name="side"><option>BUY</option><option>SELL</option></select>
-  Size <input name="size" required size="8">
-  Price <input name="price" size="8" placeholder="empty = market">
-  TIF <select name="tif"><option value="">auto</option><option>gtc</option><option>ioc</option><option>fok</option></select>
-  <label><input type="checkbox" name="post_only"> post only</label>
-  <label><input type="checkbox" name="reduce_only"> reduce only</label>
-  <button>Place order</button>
-</form>
-<form id="f-cancel">
-  Cancel: symbol <input name="symbol" size="20"> order id <input name="order_id" required size="30">
-  <button>Cancel order</button>
-</form>
-
-<h2>Builder</h2>
-<button id="b-status">Builder status</button>
-<button id="b-earnings">Builder earnings</button>
-<form id="f-approve">
-  Trader approves max builder fee (bps, 0 revokes) <input name="max_fee_bps" required size="5">
-  <button>Approve</button>
-</form>
-
-<h2>Local records</h2>
-<button id="b-orders">Orders</button>
-<button id="b-fills">Fills</button>
-<button id="b-sync">Sync fills now</button>
-<button id="b-approvals">Approvals</button>
-
-<h2>Result</h2>
-<pre id="out">Nothing yet.</pre>
+    <section class="card">
+      <h2>Order book</h2>
+      <div id="book" class="muted">Pick a market to see its book.</div>
+    </section>
+  </aside>
+</div>
 
 <script>
-const out = document.getElementById('out');
-const venue = () => document.getElementById('venue').value;
+const VENUES = { polymarket: 'Polymarket', polymarket_perps: 'Polymarket Perps', hyperliquid: 'Hyperliquid' };
+const TITLES = { markets: 'Markets', account: 'Account', orders: 'Orders', fills: 'Fills', builder: 'Builder' };
+const state = { venue: 'polymarket', view: 'markets', side: 'BUY', symbol: '', refPrice: null, config: null, query: '' };
+const $ = (id) => document.getElementById(id);
+const view = $('view');
 
-async function call(method, path, params, body) {
+function esc(v) {
+  return String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function short(v, n = 14) {
+  const s = String(v ?? '');
+  return s.length > n ? s.slice(0, Math.ceil(n / 2)) + '…' + s.slice(-Math.floor(n / 2)) : s;
+}
+function when(ms) {
+  if (!ms) return '';
+  return new Date(Number(ms)).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+function scalar(v) {
+  if (v === null || v === undefined || v === '') return '<span class="muted">none</span>';
+  if (typeof v === 'object') return '<code>' + esc(JSON.stringify(v)) + '</code>';
+  return esc(v);
+}
+
+async function api(method, path, params, body) {
   const url = new URL(path, location.origin);
-  for (const [k, v] of Object.entries(params || {})) {
-    if (v !== '' && v != null) url.searchParams.set(k, v);
-  }
-  out.textContent = 'Loading...';
-  try {
-    const res = await fetch(url, {
-      method,
-      headers: body ? {'content-type': 'application/json'} : undefined,
-      body: body ? JSON.stringify(body) : undefined,
-    });
-    const text = await res.text();
-    let data;
-    try { data = JSON.parse(text); } catch { data = text; }
-    out.textContent = method + ' ' + url.pathname + ' -> ' + res.status + '\n\n' +
-      (typeof data === 'string' ? data : JSON.stringify(data, null, 2));
-  } catch (err) {
-    out.textContent = 'Request failed: ' + err;
-  }
-}
-
-function onSubmit(id, handler) {
-  document.getElementById(id).addEventListener('submit', (e) => {
-    e.preventDefault();
-    handler(Object.fromEntries(new FormData(e.target)), e.target);
+  for (const [k, v] of Object.entries(params || {})) if (v !== '' && v != null) url.searchParams.set(k, v);
+  const res = await fetch(url, {
+    method,
+    headers: body ? { 'content-type': 'application/json' } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
   });
-}
-function onClick(id, handler) {
-  document.getElementById(id).addEventListener('click', handler);
+  let data = null;
+  try { data = await res.json(); } catch { /* empty body */ }
+  if (!res.ok) {
+    const err = new Error((data && data.error) || ('Request failed with status ' + res.status));
+    err.kind = data && data.kind;
+    throw err;
+  }
+  return data;
 }
 
-onSubmit('f-markets', (f) => call('GET', '/api/markets', {venue: venue(), q: f.q}));
-onSubmit('f-book', (f) => call('GET', '/api/book', {venue: venue(), symbol: f.symbol}));
-onClick('b-account', () => call('GET', '/api/account', {venue: venue()}));
-onSubmit('f-order', (f, form) => call('POST', '/api/orders', null, {
-  venue: venue(), symbol: f.symbol, side: f.side, size: f.size,
-  price: f.price || null, tif: f.tif || null,
-  post_only: form.post_only.checked, reduce_only: form.reduce_only.checked,
+function emptyState(title, detail) {
+  return '<div class="empty"><strong>' + esc(title) + '</strong>' + detail + '</div>';
+}
+function errorState(err) {
+  if (err.kind === 'not_configured') {
+    return emptyState('Not set up yet', esc(err.message) + '.<br>Add it to <code>.env</code> in the project folder, then restart the app.');
+  }
+  return emptyState('That did not load', esc(err.message));
+}
+function kv(obj) {
+  return '<dl class="kv">' + Object.entries(obj).map(([k, v]) =>
+    '<dt>' + esc(k.replace(/_/g, ' ')) + '</dt><dd class="num">' + scalar(v) + '</dd>').join('') + '</dl>';
+}
+function table(rows, cols) {
+  if (!rows || !rows.length) return '';
+  cols = cols || Object.keys(rows[0]).filter((k) => typeof rows[0][k] !== 'object' || rows[0][k] === null).slice(0, 7);
+  return '<div class="table-wrap"><table><thead><tr>' + cols.map((c) => '<th>' + esc(c.replace(/_/g, ' ')) + '</th>').join('') +
+    '</tr></thead><tbody>' + rows.map((r) => '<tr>' + cols.map((c) => '<td class="num">' + scalar(r[c]) + '</td>').join('') + '</tr>').join('') +
+    '</tbody></table></div>';
+}
+
+/* ---------- views ---------- */
+async function showMarkets() {
+  view.innerHTML =
+    '<form class="toolbar" id="search"><input name="q" placeholder="Search ' + esc(VENUES[state.venue]) + ' markets" value="' + esc(state.query) + '" autocomplete="off">' +
+    '<button class="btn">Search</button></form><div id="list">' + emptyState('Loading markets', '') + '</div>';
+  $('search').addEventListener('submit', (e) => { e.preventDefault(); state.query = e.target.q.value.trim(); showMarkets(); });
+  const list = $('list');
+  const venue = state.venue;
+  try {
+    const markets = await api('GET', '/api/markets', { venue, q: state.query, limit: 30 });
+    if (venue !== state.venue || state.view !== 'markets') return;
+    if (!markets.length) { list.innerHTML = emptyState('No markets found', 'Try a different search.'); return; }
+    list.innerHTML = markets.map((m) =>
+      '<article class="row"><h3>' + esc(m.title) + '</h3>' + (m.subtitle ? '<div class="sub">' + esc(m.subtitle) + '</div>' : '') +
+      '<div class="legs">' + (m.legs || []).map((l) =>
+        '<button class="leg" data-symbol="' + esc(l.symbol) + '" data-price="' + esc(l.price ?? '') + '" aria-pressed="' + (l.symbol === state.symbol) + '">' +
+        '<b>' + esc(l.label) + '</b><span class="num muted">' + esc(l.price ?? 'no price') + '</span></button>').join('') +
+      '</div></article>').join('');
+    list.querySelectorAll('.leg').forEach((b) => b.addEventListener('click', () => pickMarket(b.dataset.symbol, b.dataset.price)));
+  } catch (err) { list.innerHTML = errorState(err); }
+}
+
+async function showAccount() {
+  view.innerHTML = emptyState('Loading account', '');
+  const venue = state.venue;
+  try {
+    const a = await api('GET', '/api/account', { venue });
+    if (venue !== state.venue || state.view !== 'account') return;
+    const flat = {}, lists = {};
+    const walk = (obj, prefix) => {
+      for (const [k, v] of Object.entries(obj || {})) {
+        const name = prefix ? prefix + ' ' + k : k;
+        if (Array.isArray(v)) lists[name] = v;
+        else if (v && typeof v === 'object') walk(v, name);
+        else flat[name] = v;
+      }
+    };
+    walk(a, '');
+    let html = kv(flat);
+    for (const [name, rows] of Object.entries(lists)) {
+      html += '<h2 class="section-title">' + esc(name.replace(/_/g, ' ')) + '</h2>' +
+        (rows.length ? table(rows.filter((r) => r && typeof r === 'object')) : '<p class="row muted">Nothing here.</p>');
+    }
+    view.innerHTML = html;
+  } catch (err) { view.innerHTML = errorState(err); }
+}
+
+async function showOrders() {
+  view.innerHTML = emptyState('Loading orders', '');
+  const venue = state.venue;
+  try {
+    const orders = await api('GET', '/api/orders', { venue });
+    if (venue !== state.venue || state.view !== 'orders') return;
+    if (!orders.length) { view.innerHTML = emptyState('No orders yet', 'Orders you place on ' + esc(VENUES[venue]) + ' show up here.'); return; }
+    view.innerHTML = '<div class="table-wrap"><table><thead><tr><th>Time</th><th>Market</th><th>Side</th><th>Size</th><th>Price</th><th>Status</th><th>Builder fee</th><th></th></tr></thead><tbody>' +
+      orders.map((o) => '<tr><td>' + esc(when(o.created_at)) + '</td><td title="' + esc(o.symbol) + '">' + esc(short(o.symbol)) + '</td>' +
+        '<td class="' + (o.side === 'BUY' ? 'buy' : 'sell') + '">' + esc(o.side) + '</td><td class="num">' + esc(o.size) + '</td>' +
+        '<td class="num">' + esc(o.price ?? 'market') + '</td>' +
+        '<td><span class="chip ' + esc(o.status) + '">' + esc(o.status.replace('_', ' ')) + '</span>' + (o.error ? '<div class="sub sell">' + esc(o.error) + '</div>' : '') + '</td>' +
+        '<td class="num">' + (o.builder ? esc(o.builder_fee_bps ?? '0') + ' bps' : '<span class="muted">not attributed</span>') + '</td>' +
+        '<td>' + (o.status === 'open' && o.venue_order_id ? '<button class="btn small" data-cancel="' + esc(o.venue_order_id) + '" data-symbol="' + esc(o.symbol) + '">Cancel</button>' : '') + '</td></tr>').join('') +
+      '</tbody></table></div>';
+    view.querySelectorAll('[data-cancel]').forEach((b) => b.addEventListener('click', async () => {
+      b.disabled = true; b.textContent = 'Cancelling';
+      try { await api('DELETE', '/api/orders', { venue, order_id: b.dataset.cancel, symbol: b.dataset.symbol }); showOrders(); }
+      catch (err) { b.disabled = false; b.textContent = 'Cancel'; alertInline(b, err.message); }
+    }));
+  } catch (err) { view.innerHTML = errorState(err); }
+}
+function alertInline(el, msg) {
+  const p = document.createElement('div'); p.className = 'sub sell'; p.textContent = msg; el.after(p);
+}
+
+async function showFills() {
+  view.innerHTML = '<div class="toolbar"><span class="muted" id="sync-note" style="flex:1;align-self:center">Fills sync automatically every 30 seconds.</span><button class="btn" id="sync">Sync now</button></div><div id="list">' + emptyState('Loading fills', '') + '</div>';
+  $('sync').addEventListener('click', async () => {
+    $('sync').disabled = true;
+    try {
+      const r = await api('POST', '/api/fills/sync');
+      const mine = r[state.venue];
+      $('sync-note').textContent = typeof mine === 'number' ? mine + ' new fills on ' + VENUES[state.venue] + '.' : String(mine);
+      loadFills();
+    } catch (err) { $('sync-note').textContent = err.message; }
+    $('sync').disabled = false;
+  });
+  loadFills();
+}
+async function loadFills() {
+  const venue = state.venue;
+  try {
+    const fills = await api('GET', '/api/fills', { venue });
+    if (venue !== state.venue || state.view !== 'fills') return;
+    $('list').innerHTML = fills.length
+      ? '<div class="table-wrap"><table><thead><tr><th>Time</th><th>Market</th><th>Side</th><th>Size</th><th>Price</th><th>Fee</th><th>Builder fee</th></tr></thead><tbody>' +
+        fills.map((f) => '<tr><td>' + esc(when(f.ts)) + '</td><td title="' + esc(f.symbol) + '">' + esc(short(f.symbol)) + '</td><td class="' + (f.side === 'BUY' ? 'buy' : 'sell') + '">' + esc(f.side) + '</td>' +
+          '<td class="num">' + esc(f.size) + '</td><td class="num">' + esc(f.price) + '</td><td class="num">' + scalar(f.fee) + '</td><td class="num">' + scalar(f.builder_fee) + '</td></tr>').join('') + '</tbody></table></div>'
+      : emptyState('No fills yet', 'Filled trades on ' + esc(VENUES[venue]) + ' land here with the builder fee each one paid.');
+  } catch (err) { $('list').innerHTML = errorState(err); }
+}
+
+async function showBuilder() {
+  const venue = state.venue;
+  const identity = (state.config && state.config.builders[venue]) || {};
+  const needsApproval = venue !== 'polymarket';
+  view.innerHTML =
+    '<h2 class="section-title">Your builder identity</h2>' + kv(identity) +
+    '<h2 class="section-title">Status</h2><div id="b-status">' + emptyState('Checking status', '') + '</div>' +
+    (needsApproval
+      ? '<h2 class="section-title">Trader approval</h2><form class="toolbar" id="approve"><input name="bps" inputmode="decimal" placeholder="Max builder fee in bps, 0 to revoke" required autocomplete="off"><button class="btn primary">Approve fee</button></form><p class="row muted" id="approve-note" style="border:0;padding-top:0">The trader wallet signs this once. Orders are rejected or go unattributed without it.</p>'
+      : '<p class="row muted">Polymarket prediction markets need no approval step. Your builder code rides on every order.</p>') +
+    '<h2 class="section-title">Earnings</h2><div class="toolbar"><button class="btn" id="earn">Load earnings</button></div><div id="b-earn"></div>';
+  if (needsApproval) {
+    $('approve').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const note = $('approve-note');
+      try {
+        const r = await api('POST', '/api/builder/approve', null, { venue, max_fee_bps: e.target.bps.value });
+        note.className = 'row buy'; note.textContent = r && r.dry_run ? 'Dry run: nothing was sent. Set DRY_RUN=false to approve for real.' : 'Approved.';
+        loadBuilderStatus();
+      } catch (err) { note.className = 'row sell'; note.textContent = err.message; }
+    });
+  }
+  $('earn').addEventListener('click', async () => {
+    $('b-earn').innerHTML = emptyState('Loading earnings', '');
+    try {
+      const r = await api('GET', '/api/builder/earnings', { venue });
+      const flat = {}, lists = {};
+      for (const [k, v] of Object.entries(r || {})) {
+        if (Array.isArray(v)) lists[k] = v;
+        else if (v && typeof v === 'object') Object.assign(flat, Object.fromEntries(Object.entries(v).filter(([, x]) => typeof x !== 'object')));
+        else flat[k] = v;
+      }
+      $('b-earn').innerHTML = kv(flat) + Object.entries(lists).map(([k, rows]) => rows.length ? '<h2 class="section-title">' + esc(k) + '</h2>' + table(rows) : '').join('');
+    } catch (err) { $('b-earn').innerHTML = errorState(err); }
+  });
+  loadBuilderStatus();
+}
+async function loadBuilderStatus() {
+  const venue = state.venue;
+  try {
+    const s = await api('GET', '/api/builder/status', { venue });
+    if (venue !== state.venue || state.view !== 'builder') return;
+    $('b-status').innerHTML = kv(s);
+  } catch (err) { if ($('b-status')) $('b-status').innerHTML = errorState(err); }
+}
+
+const VIEWS = { markets: showMarkets, account: showAccount, orders: showOrders, fills: showFills, builder: showBuilder };
+function render() {
+  $('view-title').textContent = TITLES[state.view];
+  document.querySelectorAll('.nav button').forEach((b) => b.toggleAttribute('aria-current', false));
+  document.querySelector('.nav button[data-view="' + state.view + '"]').setAttribute('aria-current', 'page');
+  document.querySelectorAll('.tabs button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.venue === state.venue)));
+  VIEWS[state.view]();
+}
+
+/* ---------- ticket and book ---------- */
+function pickMarket(symbol, price) {
+  state.symbol = symbol;
+  state.refPrice = price ? Number(price) : null;
+  $('t-symbol').value = symbol;
+  document.querySelectorAll('.leg').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.symbol === symbol)));
+  updateEstimate();
+  loadBook();
+  $('t-size').focus();
+}
+async function loadBook() {
+  const box = $('book');
+  if (!state.symbol) { box.className = 'muted'; box.textContent = 'Pick a market to see its book.'; return; }
+  const symbol = state.symbol, venue = state.venue;
+  box.className = 'muted'; box.textContent = 'Loading book';
+  try {
+    const b = await api('GET', '/api/book', { venue, symbol });
+    if (symbol !== state.symbol || venue !== state.venue) return;
+    const side = (levels, cls) => (levels || []).slice(0, 8).map((l) =>
+      '<div class="lv num"><span class="' + cls + '">' + esc(l.price) + '</span><span class="muted">' + esc(l.size) + '</span></div>').join('') || '<span class="muted">Empty</span>';
+    box.className = 'book';
+    box.innerHTML = '<div><h4>Bids</h4>' + side(b.bids, 'buy') + '</div><div><h4>Asks</h4>' + side(b.asks, 'sell') + '</div>';
+    if (b.asks && b.asks[0] && b.bids && b.bids[0]) {
+      state.refPrice = (Number(b.asks[0].price) + Number(b.bids[0].price)) / 2;
+      updateEstimate();
+    }
+  } catch (err) { box.className = 'note err'; box.textContent = err.message; }
+}
+function updateEstimate() {
+  const el = $('estimate');
+  const size = Number($('t-size').value);
+  const price = Number($('t-price').value) || state.refPrice;
+  const max = state.config ? Number(state.config.max_order_usd) : null;
+  if (!size || !price) { el.textContent = max ? 'Orders are capped at $' + max + ' each.' : ''; el.className = 'estimate num'; return; }
+  const notional = size * price;
+  const over = max && notional > max;
+  el.textContent = 'About $' + notional.toFixed(2) + (max ? ' of the $' + max + ' cap' : '') + (over ? '. Too large, lower the size.' : '');
+  el.className = 'estimate num' + (over ? ' over' : '');
+}
+document.querySelectorAll('.seg button').forEach((b) => b.addEventListener('click', () => {
+  state.side = b.dataset.side;
+  document.querySelectorAll('.seg button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
 }));
-onSubmit('f-cancel', (f) => call('DELETE', '/api/orders', {venue: venue(), symbol: f.symbol, order_id: f.order_id}));
-onClick('b-status', () => call('GET', '/api/builder/status', {venue: venue()}));
-onClick('b-earnings', () => call('GET', '/api/builder/earnings', {venue: venue()}));
-onSubmit('f-approve', (f) => call('POST', '/api/builder/approve', null, {venue: venue(), max_fee_bps: f.max_fee_bps}));
-onClick('b-orders', () => call('GET', '/api/orders', {venue: venue()}));
-onClick('b-fills', () => call('GET', '/api/fills', {venue: venue()}));
-onClick('b-sync', () => call('POST', '/api/fills/sync'));
-onClick('b-approvals', () => call('GET', '/api/builder/approvals', {venue: venue()}));
+['t-size', 't-price'].forEach((id) => $(id).addEventListener('input', updateEstimate));
+$('t-symbol').addEventListener('change', (e) => { state.symbol = e.target.value.trim(); state.refPrice = null; loadBook(); });
 
-fetch('/api/config').then((r) => r.json()).then((c) => {
-  document.getElementById('mode').textContent =
-    (c.dry_run ? 'DRY RUN: orders are recorded locally and not sent. ' : 'LIVE: orders are sent to the venue. ') +
-    'Max order $' + c.max_order_usd + '. Hyperliquid network: ' + c.hyperliquid.network + '.';
+$('ticket').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = e.target, note = $('t-note'), btn = $('t-submit');
+  btn.disabled = true; note.className = 'note muted'; note.textContent = 'Placing order';
+  try {
+    const o = await api('POST', '/api/orders', null, {
+      venue: state.venue, symbol: f.symbol.value.trim(), side: state.side, size: f.size.value,
+      price: f.price.value || null, tif: f.tif.value || null,
+      post_only: f.post_only.checked, reduce_only: f.reduce_only.checked,
+    });
+    if (o.status === 'rejected') { note.className = 'note err'; note.textContent = 'Rejected: ' + (o.error || 'no reason given'); }
+    else if (o.status === 'dry_run') { note.className = 'note ok'; note.textContent = 'Dry run recorded. Nothing was sent to ' + VENUES[state.venue] + '.'; }
+    else { note.className = 'note ok'; note.textContent = 'Order ' + o.status + (o.builder ? ', attributed to your builder.' : ', not attributed.'); }
+    if (state.view === 'orders') showOrders();
+  } catch (err) { note.className = 'note err'; note.textContent = err.message; }
+  btn.disabled = false;
 });
+
+/* ---------- wiring ---------- */
+document.querySelectorAll('.nav button').forEach((b) => b.addEventListener('click', () => { state.view = b.dataset.view; render(); }));
+document.querySelectorAll('.tabs button').forEach((b) => b.addEventListener('click', () => {
+  if (state.venue === b.dataset.venue) return;
+  state.venue = b.dataset.venue; state.symbol = ''; state.refPrice = null; state.query = '';
+  $('t-symbol').value = ''; $('t-note').textContent = '';
+  loadBook(); updateEstimate(); render();
+}));
+
+api('GET', '/api/config').then((c) => {
+  state.config = c;
+  const m = $('mode');
+  m.className = 'mode ' + (c.dry_run ? 'dry' : 'live');
+  m.innerHTML = '<strong>' + (c.dry_run ? 'Dry run' : 'Live trading') + '</strong><span>' +
+    (c.dry_run ? 'Orders are recorded, not sent.' : 'Orders go to the venue.') + ' Hyperliquid on ' + esc(c.hyperliquid.network) + '.</span>';
+  updateEstimate();
+  if (state.view === 'builder') render();
+}).catch(() => { $('mode').innerHTML = '<strong>Offline</strong><span>The app is not responding.</span>'; });
+render();
 </script>
 </body>
 </html>

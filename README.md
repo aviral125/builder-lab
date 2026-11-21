@@ -8,7 +8,7 @@ A small local backend for experimenting with builder codes on three venues:
 | `polymarket_perps` | Polymarket Perps | builder's Perps account address |
 | `hyperliquid` | Hyperliquid perps | builder's wallet address |
 
-One FastAPI process, one SQLite file, one unstyled HTML page. It runs on your
+One FastAPI process, one SQLite file, one web page (no build step). It runs on your
 machine and binds to `127.0.0.1`.
 
 ## Run it
@@ -95,7 +95,7 @@ app/venues/polymarket_clob.py
 app/venues/polymarket_perps.py
 app/venues/hyperliquid.py
 app/static/index.html      the page
-tests/                     45 tests against fake SDKs, no network
+tests/                     46 tests against fake SDKs, no network
 ```
 
 ## Known limits

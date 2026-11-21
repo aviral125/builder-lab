@@ -140,6 +140,9 @@ class HyperliquidVenue(Venue):
                 continue
             out.append(
                 {
+                    "title": name,
+                    "subtitle": f"Perpetual, up to {asset.get('maxLeverage')}x",
+                    "legs": [{"label": name, "symbol": name, "price": mids.get(name)}],
                     "symbol": name,
                     "mid": mids.get(name),
                     "size_decimals": asset.get("szDecimals"),

@@ -105,6 +105,15 @@ class PolymarketPerpsVenue(Venue):
             ticker = marks.get(inst.id)
             out.append(
                 {
+                    "title": inst.symbol,
+                    "subtitle": f"{to_jsonable(inst.category)} perpetual, up to {inst.max_leverage}x",
+                    "legs": [
+                        {
+                            "label": inst.symbol,
+                            "symbol": str(inst.id),
+                            "price": str(ticker.mark_price) if ticker else None,
+                        }
+                    ],
                     "symbol": str(inst.id),
                     "name": inst.symbol,
                     "category": to_jsonable(inst.category),
@@ -121,7 +130,11 @@ class PolymarketPerpsVenue(Venue):
 
     async def orderbook(self, symbol: str) -> Any:
         book = await self._clients.public().fetch_perps_book(instrument_id=int(symbol), depth=20)
-        return to_jsonable(book)
+        return {
+            "symbol": symbol,
+            "bids": [{"price": str(l.price), "size": str(l.quantity)} for l in book.bids],
+            "asks": [{"price": str(l.price), "size": str(l.quantity)} for l in book.asks],
+        }
 
     async def reference_price(self, symbol: str, side: str) -> Decimal:
         ticker = await self._clients.public().fetch_perps_ticker(instrument_id=int(symbol))
