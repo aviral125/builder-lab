@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>builder-lab</title>
+</head>
+<body>
+<h1>builder-lab</h1>
+<p id="mode"></p>
+
+<p>
+  Venue:
+  <select id="venue">
+    <option value="polymarket">polymarket (prediction markets)</option>
+    <option value="polymarket_perps">polymarket_perps</option>
+    <option value="hyperliquid">hyperliquid</option>
+  </select>
+</p>
+
+<h2>Markets</h2>
+<form id="f-markets">
+  Search <input name="q" placeholder="optional">
+  <button>List markets</button>
+</form>
+<p>Symbol to trade: token id (polymarket), instrument id (polymarket_perps), coin such as BTC (hyperliquid).</p>
+<form id="f-book">
+  Symbol <input name="symbol" required size="40">
+  <button>Order book</button>
+</form>
+
+<h2>Account</h2>
+<button id="b-account">Balances, positions, open orders</button>
+
+<h2>Place order</h2>
+<form id="f-order">
+  Symbol <input name="symbol" required size="40"><br>
+  Side <select name="side"><option>BUY</option><option>SELL</option></select>
+  Size <input name="size" required size="8">
+  Price <input name="price" size="8" placeholder="empty = market">
+  TIF <select name="tif"><option value="">auto</option><option>gtc</option><option>ioc</option><option>fok</option></select>
+  <label><input type="checkbox" name="post_only"> post only</label>
+  <label><input type="checkbox" name="reduce_only"> reduce only</label>
+  <button>Place order</button>
+</form>
+<form id="f-cancel">
+  Cancel: symbol <input name="symbol" size="20"> order id <input name="order_id" required size="30">
+  <button>Cancel order</button>
+</form>
+
+<h2>Builder</h2>
+<button id="b-status">Builder status</button>
+<button id="b-earnings">Builder earnings</button>
+<form id="f-approve">
+  Trader approves max builder fee (bps, 0 revokes) <input name="max_fee_bps" required size="5">
+  <button>Approve</button>
+</form>
+
+<h2>Local records</h2>
+<button id="b-orders">Orders</button>
+<button id="b-fills">Fills</button>
+<button id="b-sync">Sync fills now</button>
+<button id="b-approvals">Approvals</button>
+
+<h2>Result</h2>
+<pre id="out">Nothing yet.</pre>
+
+<script>
+const out = document.getElementById('out');
+const venue = () => document.getElementById('venue').value;
+
+async function call(method, path, params, body) {
+  const url = new URL(path, location.origin);
+  for (const [k, v] of Object.entries(params || {})) {
+    if (v !== '' && v != null) url.searchParams.set(k, v);
+  }
+  out.textContent = 'Loading...';
+  try {
+    const res = await fetch(url, {
+      method,
+      headers: body ? {'content-type': 'application/json'} : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch { data = text; }
+    out.textContent = method + ' ' + url.pathname + ' -> ' + res.status + '\n\n' +
+      (typeof data === 'string' ? data : JSON.stringify(data, null, 2));
+  } catch (err) {
+    out.textContent = 'Request failed: ' + err;
+  }
+}
+
+function onSubmit(id, handler) {
+  document.getElementById(id).addEventListener('submit', (e) => {
+    e.preventDefault();
+    handler(Object.fromEntries(new FormData(e.target)), e.target);
+  });
+}
+function onClick(id, handler) {
+  document.getElementById(id).addEventListener('click', handler);
+}
+
+onSubmit('f-markets', (f) => call('GET', '/api/markets', {venue: venue(), q: f.q}));
+onSubmit('f-book', (f) => call('GET', '/api/book', {venue: venue(), symbol: f.symbol}));
+onClick('b-account', () => call('GET', '/api/account', {venue: venue()}));
+onSubmit('f-order', (f, form) => call('POST', '/api/orders', null, {
+  venue: venue(), symbol: f.symbol, side: f.side, size: f.size,
+  price: f.price || null, tif: f.tif || null,
+  post_only: form.post_only.checked, reduce_only: form.reduce_only.checked,
+}));
+onSubmit('f-cancel', (f) => call('DELETE', '/api/orders', {venue: venue(), symbol: f.symbol, order_id: f.order_id}));
+onClick('b-status', () => call('GET', '/api/builder/status', {venue: venue()}));
+onClick('b-earnings', () => call('GET', '/api/builder/earnings', {venue: venue()}));
+onSubmit('f-approve', (f) => call('POST', '/api/builder/approve', null, {venue: venue(), max_fee_bps: f.max_fee_bps}));
+onClick('b-orders', () => call('GET', '/api/orders', {venue: venue()}));
+onClick('b-fills', () => call('GET', '/api/fills', {venue: venue()}));
+onClick('b-sync', () => call('POST', '/api/fills/sync'));
+onClick('b-approvals', () => call('GET', '/api/builder/approvals', {venue: venue()}));
+
+fetch('/api/config').then((r) => r.json()).then((c) => {
+  document.getElementById('mode').textContent =
+    (c.dry_run ? 'DRY RUN: orders are recorded locally and not sent. ' : 'LIVE: orders are sent to the venue. ') +
+    'Max order $' + c.max_order_usd + '. Hyperliquid network: ' + c.hyperliquid.network + '.';
+});
+</script>
+</body>
+</html>
